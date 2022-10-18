@@ -52,6 +52,12 @@ def get_faces_dict(path):
     return dict([(remove_file_ext(image), calc_face_encoding(image))
         for image in image_files])
 
+def encoding_img(image):
+    img = face_recognition.load_image_file(image)
+
+    # Get face encodings for any faces in the uploaded image
+    uploaded_faces = face_recognition.face_encodings(img)
+    return str(uploaded_faces)
 
 def detect_faces_in_image(file_stream):
     # Load the uploaded image file
@@ -59,6 +65,7 @@ def detect_faces_in_image(file_stream):
 
     # Get face encodings for any faces in the uploaded image
     uploaded_faces = face_recognition.face_encodings(img)
+    
 
     # Defaults for the result object
     faces_found = len(uploaded_faces)
@@ -77,7 +84,8 @@ def detect_faces_in_image(file_stream):
                             uploaded_face)[0]
                     faces.append({
                         "id": match,
-                        "dist": dist
+                        "dist": dist,
+                        "encoding": str(uploaded_faces)
                     })
 
     return {
@@ -120,6 +128,7 @@ def web_faces():
         try:
             new_encoding = calc_face_encoding(file)
             faces_dict.update({request.args.get('id'): new_encoding})
+
         except Exception as exception:
             raise BadRequest(exception)
 
@@ -128,6 +137,22 @@ def web_faces():
         remove("{0}/{1}.jpg".format(persistent_faces, request.args.get('id')))
 
     return jsonify(list(faces_dict.keys()))
+
+@app.route('/face', methods=['POST'])
+def web_faces_atual():
+    
+    # POST
+    file = extract_image(request)
+    
+    if request.method == 'POST':
+        try:
+            new_encoding = calc_face_encoding(file)
+            enco = encoding_img(file)
+
+        except Exception as exception:
+            raise BadRequest(exception)
+
+    return enco
 
 
 def extract_image(request):
