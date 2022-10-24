@@ -47,6 +47,9 @@ RUN cd ~ && \
     pip3 install -r requirements.txt && \
     python3 setup.py install
 
+# Install psycopg2
+RUN cd ~ && \
+    pip3 install psycopg2
 
 # Copy web service script
 COPY face_servico.py /root/face_servico.py
