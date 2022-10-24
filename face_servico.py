@@ -143,7 +143,7 @@ def web_recognize_base():
         raise BadRequest("Given file is invalid!")
 
 
-@app.route('/faces', methods=['GET', 'POST', 'DELETE'])
+@app.route('/facesbase', methods=['GET', 'POST', 'DELETE'])
 def web_faces_base_public():
     # GET
     if request.method == 'GET':
@@ -177,6 +177,8 @@ def web_faces_base_public():
 
     return jsonify(list(faces_dict.keys()))
 
+
+#Imagem
 
 @app.route('/', methods=['POST'])
 def web_recognize():
