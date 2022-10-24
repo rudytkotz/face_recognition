@@ -2,11 +2,13 @@ from os import listdir, remove
 from os.path import isfile, join, splitext
 
 import face_recognition
+import base64
+import psycopg2
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.exceptions import BadRequest
 
-# Global storage for images
+# Armazenamento global para imagens
 faces_dict = {}
 persistent_faces = "/root/faces"
 
@@ -15,8 +17,36 @@ app = Flask(__name__)
 CORS(app)
 
 # <Picture functions> #
+def conecta_db():
+  con = psycopg2.connect(host='localhost', 
+                         database='API_Hospital',
+                         user='postgres', 
+                         password='root')
+  return con
 
 
+def consultar_db(sql):
+  con = conecta_db()
+  cur = con.cursor()
+  cur.execute(sql)
+  recset = cur.fetchall()
+  registros = []
+  for rec in recset:
+    registros.append(rec)
+  con.close()
+  return registros
+
+def convert_base64(file_stream):
+    with open(file_stream, "rb") as image2string: 
+        converted_string = base64.b64encode(image2string.read()) 
+    print(converted_string) 
+    with open('encode.bin', "wb") as file: 
+        file.write(converted_string)
+    return converted_string
+
+def base64_ToImage(encode):
+    return base64.b64decode((encode)) 
+     
 def is_picture(filename):
     image_extensions = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in image_extensions
@@ -38,11 +68,11 @@ def calc_face_encoding(image):
     # If more than one face on the given image was found -> error
     if len(faces) > 1:
         raise Exception(
-            "Found more than one face in the given training image.")
+            "Encontrou mais de um rosto na imagem.")
 
     # If none face on the given image was found -> error
     if not faces:
-        raise Exception("Could not find any face in the given training image.")
+        raise Exception("Não foram identificadas faces na imagem.")
 
     return faces[0]
 
@@ -97,6 +127,56 @@ def detect_faces_in_image(file_stream):
 
 # <Controller>
 
+@app.route('/base', methods=['POST'])
+def web_recognize_base():
+    if 'base64Image' not in request.args:
+        raise BadRequest("Identifier for the face was not given!")
+
+    base64ToImagem = request.args.get('base64Image')
+    
+    file = extract_image(base64_ToImage(base64ToImagem))
+
+    if file and is_picture(file.filename):
+        # The image file seems valid! Detect faces and return the result.
+        return jsonify(detect_faces_in_image(file))
+    else:
+        raise BadRequest("Given file is invalid!")
+
+
+@app.route('/faces', methods=['GET', 'POST', 'DELETE'])
+def web_faces_base_public():
+    # GET
+    if request.method == 'GET':
+        return jsonify(list(faces_dict.keys()))
+
+    # POST/DELETE
+    if 'base64Image' not in request.args:
+        raise BadRequest("Identifier for the face was not given!")
+
+    base64ToImagem = request.args.get('base64Image')
+    
+    file = extract_image(base64_ToImage(base64ToImagem))
+    if 'id' not in request.args:
+        raise BadRequest("Identifier for the face was not given!")
+
+    if request.method == 'POST':
+        app.logger.info('%s loaded', file.filename)
+        # HINT jpg included just for the image check -> this is faster then passing boolean var through few methods
+        # TODO add method for extension persistence - do not forget abut the deletion
+        file.save("{0}/{1}.jpg".format(persistent_faces, request.args.get('id')))
+        try:
+            new_encoding = calc_face_encoding(file)
+            faces_dict.update({request.args.get('id'): new_encoding})
+
+        except Exception as exception:
+            raise BadRequest(exception)
+
+    elif request.method == 'DELETE':
+        faces_dict.pop(request.args.get('id'))
+        remove("{0}/{1}.jpg".format(persistent_faces, request.args.get('id')))
+
+    return jsonify(list(faces_dict.keys()))
+
 
 @app.route('/', methods=['POST'])
 def web_recognize():
@@ -142,7 +222,10 @@ def web_faces():
 def web_faces_atual():
     
     # POST
-    file = extract_image(request)
+
+    #img = Image.open(io.BytesIO(base64.decodebytes(bytes(base64_str, "utf-8"))))
+
+    file = extract_image(img)
     
     if request.method == 'POST':
         try:
@@ -152,7 +235,7 @@ def web_faces_atual():
         except Exception as exception:
             raise BadRequest(exception)
 
-    return enco
+    return enco, img
 
 
 def extract_image(request):

@@ -5,6 +5,6 @@ services:
 
 script:
   docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-  docker build -t facerec_service .;
-  docker tag facerec_service najjannaj/face_recognition:latest;
+  docker build -t face_servico .;
+  docker tag face_servico najjannaj/face_recognition:latest;
   docker push najjannaj/face_recognition:latest;
